@@ -115,16 +115,26 @@ public class GeminiAIService {
         );
 
         // API 호출
-        return webClient.post()
-            .uri(apiUrl + "?key=" + apiKey)
+        logger.info("Calling Gemini API with URL: {}", apiUrl);
+        String response = webClient.post()
+            .uri(apiUrl)
             .header("Content-Type", "application/json")
+            .header("x-goog-api-key", apiKey)
             .bodyValue(requestBody)
             .retrieve()
             .bodyToMono(String.class)
             .timeout(Duration.ofMillis(timeout))
             .doOnError(error -> logger.error("Gemini API call failed", error))
-            .onErrorResume(error -> Mono.just("{\"error\": \"API call failed\"}"))
+            .onErrorResume(error -> {
+                logger.error("Gemini API error, returning empty response", error);
+                return Mono.just("{\"error\": \"API call failed\"}");
+            })
             .block();
+
+        logger.info("Gemini API response length: {} chars", response != null ? response.length() : 0);
+        logger.debug("Gemini API raw response: {}", response);
+
+        return response;
     }
 
     /**
