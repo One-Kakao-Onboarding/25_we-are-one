@@ -468,6 +468,202 @@ public class DashboardService {
     }
 
     /**
+     * 탄소 배출량 감축 효과 조회
+     * "만약 모든 이동을 내연기관으로 했다면" vs "실제 친환경 교통수단 사용"
+     */
+    public EmissionReductionResponse getEmissionReduction(LocalDate startDate, LocalDate endDate) {
+        // 기본 기간 설정 (파라미터 없으면 올해)
+        if (startDate == null || endDate == null) {
+            int currentYear = LocalDate.now().getYear();
+            startDate = LocalDate.of(currentYear, 1, 1);
+            endDate = LocalDate.of(currentYear, 12, 31);
+        }
+
+        // 데이터 조회
+        List<CommuteRecord> commuteRecords = commuteRecordRepository
+                .findByDateBetween(startDate, endDate);
+
+        List<BusinessTrip> businessTrips = businessTripRepository
+                .findByDateBetween(startDate, endDate);
+
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
+
+        List<KakaoTData> kakaoTData = kakaoTDataRepository
+                .findByUsageDateBetweenOrderByUsageDateDesc(startDateTime, endDateTime);
+
+        // 1. 실제 배출량 계산
+        Double actualEmissions = calculateActualEmissions(commuteRecords, businessTrips, kakaoTData);
+
+        // 2. 가상 배출량 계산 (모든 이동을 내연기관으로 했을 때)
+        Double hypotheticalEmissions = calculateHypotheticalEmissions(commuteRecords, businessTrips, kakaoTData);
+
+        // 3. 감축량 및 감축률 계산
+        Double reductionAmount = hypotheticalEmissions - actualEmissions;
+        Double reductionPercentage = hypotheticalEmissions > 0 ?
+                (reductionAmount / hypotheticalEmissions) * 100 : 0.0;
+
+        // 4. 총 이동 거리 계산
+        Double totalDistance = calculateTotalDistance(commuteRecords, businessTrips, kakaoTData);
+
+        // 5. 친환경 교통수단 통계
+        EmissionReductionResponse.EcoFriendlyStats ecoStats =
+                calculateEcoFriendlyStats(commuteRecords, businessTrips, kakaoTData);
+
+        // 6. 응답 생성
+        EmissionReductionResponse response = new EmissionReductionResponse();
+        response.setStartDate(startDate);
+        response.setEndDate(endDate);
+        response.setActualEmissions(actualEmissions);
+        response.setHypotheticalEmissions(hypotheticalEmissions);
+        response.setReductionAmount(reductionAmount);
+        response.setReductionPercentage(reductionPercentage);
+        response.setTotalDistance(totalDistance);
+        response.setEcoStats(ecoStats);
+
+        return response;
+    }
+
+    /**
+     * 실제 배출량 계산
+     */
+    private Double calculateActualEmissions(List<CommuteRecord> commuteRecords,
+                                           List<BusinessTrip> businessTrips,
+                                           List<KakaoTData> kakaoTData) {
+        Double commuteEmissions = commuteRecords.stream()
+                .mapToDouble(r -> r.getEmissions() != null ? r.getEmissions() : 0.0)
+                .sum();
+
+        Double businessEmissions = businessTrips.stream()
+                .mapToDouble(t -> t.getEmissions() != null ? t.getEmissions() : 0.0)
+                .sum();
+
+        Double kakaoTEmissions = kakaoTData.stream()
+                .mapToDouble(k -> k.getEmissions() != null ? k.getEmissions() : 0.0)
+                .sum();
+
+        return commuteEmissions + businessEmissions + kakaoTEmissions;
+    }
+
+    /**
+     * 가상 배출량 계산 (모든 이동을 내연기관 차량으로 했을 때)
+     */
+    private Double calculateHypotheticalEmissions(List<CommuteRecord> commuteRecords,
+                                                  List<BusinessTrip> businessTrips,
+                                                  List<KakaoTData> kakaoTData) {
+        // 출퇴근: 모든 거리를 ICE로 계산
+        Double commuteHypothetical = commuteRecords.stream()
+                .mapToDouble(r -> {
+                    Double distance = r.getDistance() != null ? r.getDistance() : 0.0;
+                    // 대중교통/도보는 거리가 0이므로, 평균 거리로 가정 (10km)
+                    if (distance == 0.0 && (r.getUsedCar() == null || !r.getUsedCar())) {
+                        distance = 10.0; // 평균 출퇴근 거리
+                    }
+                    return EmissionFactors.calculateEmissions(distance, EmissionFactors.CAR_TAXI);
+                })
+                .sum();
+
+        // 출장: 현재 배출량 그대로 (이미 내연기관 기준)
+        Double businessHypothetical = businessTrips.stream()
+                .mapToDouble(t -> t.getEmissions() != null ? t.getEmissions() : 0.0)
+                .sum();
+
+        // 카카오T: 모든 거리를 일반 택시(ICE)로 계산
+        Double kakaoTHypothetical = kakaoTData.stream()
+                .mapToDouble(k -> {
+                    Double distance = k.getDistance() != null ? k.getDistance() : 0.0;
+                    return EmissionFactors.calculateEmissions(distance, EmissionFactors.CAR_TAXI);
+                })
+                .sum();
+
+        return commuteHypothetical + businessHypothetical + kakaoTHypothetical;
+    }
+
+    /**
+     * 총 이동 거리 계산
+     */
+    private Double calculateTotalDistance(List<CommuteRecord> commuteRecords,
+                                         List<BusinessTrip> businessTrips,
+                                         List<KakaoTData> kakaoTData) {
+        Double commuteDistance = commuteRecords.stream()
+                .mapToDouble(r -> {
+                    Double distance = r.getDistance() != null ? r.getDistance() : 0.0;
+                    // 대중교통/도보는 거리 미기록이므로 평균 거리로 가정
+                    if (distance == 0.0 && (r.getUsedCar() == null || !r.getUsedCar())) {
+                        return 10.0;
+                    }
+                    return distance;
+                })
+                .sum();
+
+        Double businessDistance = businessTrips.stream()
+                .mapToDouble(t -> t.getDistance() != null ? t.getDistance() : 0.0)
+                .sum();
+
+        Double kakaoTDistance = kakaoTData.stream()
+                .mapToDouble(k -> k.getDistance() != null ? k.getDistance() : 0.0)
+                .sum();
+
+        return commuteDistance + businessDistance + kakaoTDistance;
+    }
+
+    /**
+     * 친환경 교통수단 통계 계산
+     */
+    private EmissionReductionResponse.EcoFriendlyStats calculateEcoFriendlyStats(
+            List<CommuteRecord> commuteRecords,
+            List<BusinessTrip> businessTrips,
+            List<KakaoTData> kakaoTData) {
+
+        int totalTrips = commuteRecords.size() + businessTrips.size() + kakaoTData.size();
+
+        // 대중교통 (출퇴근에서 자가용 미사용)
+        int publicTransportCount = (int) commuteRecords.stream()
+                .filter(r -> r.getUsedCar() == null || !r.getUsedCar())
+                .count();
+
+        // 전기차 (출퇴근 + 카카오T)
+        int evCount = (int) commuteRecords.stream()
+                .filter(r -> r.getVehicleType() == VehicleType.EV)
+                .count();
+        evCount += (int) kakaoTData.stream()
+                .filter(k -> k.getVehicleType() == VehicleType.EV)
+                .count();
+
+        // 자전거 (카카오T)
+        int bikeCount = (int) kakaoTData.stream()
+                .filter(k -> k.getServiceType() == KakaoTServiceType.BIKE)
+                .count();
+
+        // 도보 (출퇴근에서 거리가 0이고 자가용 미사용인 경우 일부로 가정)
+        int walkCount = 0; // 정확한 판별 어려움
+
+        // 내연기관 (출퇴근 + 출장 + 카카오T)
+        int iceCount = (int) commuteRecords.stream()
+                .filter(r -> r.getVehicleType() == VehicleType.ICE || r.getVehicleType() == VehicleType.HYBRID)
+                .count();
+        iceCount += (int) businessTrips.stream()
+                .filter(t -> t.getType() != TripType.BUS) // 버스 제외
+                .count();
+        iceCount += (int) kakaoTData.stream()
+                .filter(k -> k.getVehicleType() == VehicleType.ICE || k.getVehicleType() == VehicleType.HYBRID)
+                .count();
+
+        // 친환경 교통수단 총 횟수
+        int ecoFriendlyTrips = publicTransportCount + evCount + bikeCount + walkCount;
+
+        return new EmissionReductionResponse.EcoFriendlyStats(
+                totalTrips,
+                ecoFriendlyTrips,
+                publicTransportCount,
+                evCount,
+                bikeCount,
+                walkCount,
+                iceCount
+        );
+    }
+
+    /**
      * 포인트 요약 조회
      */
     public PointsSummaryResponse getPointsSummary(LocalDate startDate, LocalDate endDate) {

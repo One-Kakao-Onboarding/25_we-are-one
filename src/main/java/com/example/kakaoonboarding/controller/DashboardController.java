@@ -161,4 +161,24 @@ public class DashboardController {
             return ResponseEntity.badRequest().build();
         }
     }
+
+    /**
+     * 탄소 배출량 감축 효과 조회
+     * GET /api/dashboard/emission-reduction?startDate=2024-01-01&endDate=2024-12-31
+     *
+     * "만약 모든 이동을 내연기관으로 했다면" vs "실제 친환경 교통수단 사용" 비교
+     * 관리자가 전기차, 자전거, 대중교통 사용으로 인한 실제 탄소 감축 효과를 확인
+     */
+    @GetMapping("/emission-reduction")
+    public ResponseEntity<EmissionReductionResponse> getEmissionReduction(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        try {
+            EmissionReductionResponse response = dashboardService.getEmissionReduction(startDate, endDate);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.badRequest().build();
+        }
+    }
 }
