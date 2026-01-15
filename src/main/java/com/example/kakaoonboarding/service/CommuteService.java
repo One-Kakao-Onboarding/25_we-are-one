@@ -23,11 +23,14 @@ public class CommuteService {
 
     private final CommuteRecordRepository commuteRecordRepository;
     private final AuthService authService;
+    private final PointsService pointsService;
 
     public CommuteService(CommuteRecordRepository commuteRecordRepository,
-                         AuthService authService) {
+                         AuthService authService,
+                         PointsService pointsService) {
         this.commuteRecordRepository = commuteRecordRepository;
         this.authService = authService;
+        this.pointsService = pointsService;
     }
 
     /**
@@ -52,6 +55,10 @@ public class CommuteService {
         record.setDistance(request.getDistance());
         record.setEmissions(request.getEmissions());
 
+        // 포인트 계산 및 설정
+        Integer points = pointsService.calculateCommutePoints(request.getUsedCar(), request.getVehicleType());
+        record.setPoints(points);
+
         CommuteRecord saved = commuteRecordRepository.save(record);
 
         // 이번 달 총 배출량 계산
@@ -67,6 +74,7 @@ public class CommuteService {
                 "success",
                 "출근 정보가 등록되었습니다",
                 saved.getCreatedAt(),
+                saved.getPoints(),
                 totalEmissions
         );
     }
@@ -103,7 +111,8 @@ public class CommuteService {
                         r.getUsedCar(),
                         r.getVehicleType(),
                         r.getDistance(),
-                        r.getEmissions()
+                        r.getEmissions(),
+                        r.getPoints()
                 ))
                 .collect(Collectors.toList());
 

@@ -31,6 +31,8 @@ public class CommuteRecord {
 
     private Double emissions;  // 탄소 배출량 (kgCO2e)
 
+    private Integer points;  // 포인트 (친환경 교통수단 이용 시 지급)
+
     private String department;  // 부서
 
     @Column(nullable = false, updatable = false)
@@ -104,6 +106,14 @@ public class CommuteRecord {
 
     public void setEmissions(Double emissions) {
         this.emissions = emissions;
+    }
+
+    public Integer getPoints() {
+        return points;
+    }
+
+    public void setPoints(Integer points) {
+        this.points = points;
     }
 
     public String getDepartment() {

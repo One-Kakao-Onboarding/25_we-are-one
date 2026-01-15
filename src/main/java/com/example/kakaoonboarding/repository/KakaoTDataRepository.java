@@ -28,6 +28,11 @@ public interface KakaoTDataRepository extends JpaRepository<KakaoTData, Long> {
            "WHERE k.usageDate BETWEEN :startDate AND :endDate")
     Double sumEmissionsByDateBetween(LocalDateTime startDate, LocalDateTime endDate);
 
+    // 총 배출량 조회 (날짜 범위) - alias
+    @Query("SELECT COALESCE(SUM(k.emissions), 0.0) FROM KakaoTData k " +
+           "WHERE k.usageDate BETWEEN :startDate AND :endDate")
+    Double sumEmissionsByUsageDateBetween(LocalDateTime startDate, LocalDateTime endDate);
+
     // 부서별 배출량 조회
     @Query("SELECT COALESCE(SUM(k.emissions), 0.0) FROM KakaoTData k " +
            "WHERE k.department = :department AND k.usageDate BETWEEN :startDate AND :endDate")

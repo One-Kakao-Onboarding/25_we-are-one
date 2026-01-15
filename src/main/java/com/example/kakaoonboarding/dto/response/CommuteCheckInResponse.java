@@ -7,14 +7,16 @@ public class CommuteCheckInResponse {
     private String status;
     private String message;
     private LocalDateTime createdAt;
+    private Integer points;  // 획득 포인트
     private Double totalEmissions;  // 이번 달 총 배출량
 
     public CommuteCheckInResponse(String id, String status, String message,
-                                 LocalDateTime createdAt, Double totalEmissions) {
+                                 LocalDateTime createdAt, Integer points, Double totalEmissions) {
         this.id = id;
         this.status = status;
         this.message = message;
         this.createdAt = createdAt;
+        this.points = points;
         this.totalEmissions = totalEmissions;
     }
 
@@ -49,6 +51,14 @@ public class CommuteCheckInResponse {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public Integer getPoints() {
+        return points;
+    }
+
+    public void setPoints(Integer points) {
+        this.points = points;
     }
 
     public Double getTotalEmissions() {

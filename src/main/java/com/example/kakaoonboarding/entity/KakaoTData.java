@@ -33,6 +33,8 @@ public class KakaoTData {
     @Column(nullable = false)
     private Double emissions;  // 탄소 배출량 (kgCO2e)
 
+    private Integer points;  // 포인트 (친환경 차량 이용 시 지급)
+
     @Column(length = 500)
     private String route;  // 이동 경로
 
@@ -109,6 +111,14 @@ public class KakaoTData {
 
     public void setEmissions(Double emissions) {
         this.emissions = emissions;
+    }
+
+    public Integer getPoints() {
+        return points;
+    }
+
+    public void setPoints(Integer points) {
+        this.points = points;
     }
 
     public String getRoute() {

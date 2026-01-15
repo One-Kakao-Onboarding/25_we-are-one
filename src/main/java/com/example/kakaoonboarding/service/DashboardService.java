@@ -20,13 +20,16 @@ public class DashboardService {
     private final CommuteRecordRepository commuteRecordRepository;
     private final BusinessTripRepository businessTripRepository;
     private final KakaoTDataRepository kakaoTDataRepository;
+    private final PointsService pointsService;
 
     public DashboardService(CommuteRecordRepository commuteRecordRepository,
                           BusinessTripRepository businessTripRepository,
-                          KakaoTDataRepository kakaoTDataRepository) {
+                          KakaoTDataRepository kakaoTDataRepository,
+                          PointsService pointsService) {
         this.commuteRecordRepository = commuteRecordRepository;
         this.businessTripRepository = businessTripRepository;
         this.kakaoTDataRepository = kakaoTDataRepository;
+        this.pointsService = pointsService;
     }
 
     /**
@@ -370,5 +373,143 @@ public class DashboardService {
         response.put("syncedAt", LocalDateTime.now());
 
         return response;
+    }
+
+    /**
+     * 연도별 배출량 비교
+     */
+    public YearComparisonResponse compareYears(Integer year1, Integer year2) {
+        // 기준 연도 데이터
+        LocalDate year1Start = LocalDate.of(year1, 1, 1);
+        LocalDate year1End = LocalDate.of(year1, 12, 31);
+        LocalDateTime year1DateTimeStart = year1Start.atStartOfDay();
+        LocalDateTime year1DateTimeEnd = year1End.atTime(23, 59, 59);
+
+        Double year1Commute = commuteRecordRepository
+                .sumEmissionsByDateBetween(year1Start, year1End);
+        Double year1Business = businessTripRepository
+                .sumEmissionsByDateBetween(year1Start, year1End);
+        Double year1KakaoT = kakaoTDataRepository
+                .sumEmissionsByUsageDateBetween(year1DateTimeStart, year1DateTimeEnd);
+
+        Double year1Total = (year1Commute != null ? year1Commute : 0.0) +
+                           (year1Business != null ? year1Business : 0.0) +
+                           (year1KakaoT != null ? year1KakaoT : 0.0);
+
+        // 비교 연도 데이터
+        LocalDate year2Start = LocalDate.of(year2, 1, 1);
+        LocalDate year2End = LocalDate.of(year2, 12, 31);
+        LocalDateTime year2DateTimeStart = year2Start.atStartOfDay();
+        LocalDateTime year2DateTimeEnd = year2End.atTime(23, 59, 59);
+
+        Double year2Commute = commuteRecordRepository
+                .sumEmissionsByDateBetween(year2Start, year2End);
+        Double year2Business = businessTripRepository
+                .sumEmissionsByDateBetween(year2Start, year2End);
+        Double year2KakaoT = kakaoTDataRepository
+                .sumEmissionsByUsageDateBetween(year2DateTimeStart, year2DateTimeEnd);
+
+        Double year2Total = (year2Commute != null ? year2Commute : 0.0) +
+                           (year2Business != null ? year2Business : 0.0) +
+                           (year2KakaoT != null ? year2KakaoT : 0.0);
+
+        // 절감량 및 절감률 계산
+        Double reductionAmount = year1Total - year2Total;
+        Double reductionPercentage = year1Total > 0 ?
+                (reductionAmount / year1Total) * 100 : 0.0;
+        Boolean isReduced = reductionAmount > 0;
+
+        return new YearComparisonResponse(
+                String.valueOf(year1),
+                String.valueOf(year2),
+                year1Total,
+                year2Total,
+                reductionAmount,
+                reductionPercentage,
+                isReduced
+        );
+    }
+
+    /**
+     * 연도별 추이 조회
+     */
+    public YearlyTrendResponse getYearlyTrend(Integer fromYear, Integer toYear) {
+        List<YearlyTrendResponse.YearlyEmissionData> data = new ArrayList<>();
+
+        for (int year = fromYear; year <= toYear; year++) {
+            LocalDate yearStart = LocalDate.of(year, 1, 1);
+            LocalDate yearEnd = LocalDate.of(year, 12, 31);
+            LocalDateTime yearDateTimeStart = yearStart.atStartOfDay();
+            LocalDateTime yearDateTimeEnd = yearEnd.atTime(23, 59, 59);
+
+            Double commuteEmissions = commuteRecordRepository
+                    .sumEmissionsByDateBetween(yearStart, yearEnd);
+            Double businessEmissions = businessTripRepository
+                    .sumEmissionsByDateBetween(yearStart, yearEnd);
+            Double kakaoTEmissions = kakaoTDataRepository
+                    .sumEmissionsByUsageDateBetween(yearDateTimeStart, yearDateTimeEnd);
+
+            commuteEmissions = commuteEmissions != null ? commuteEmissions : 0.0;
+            businessEmissions = businessEmissions != null ? businessEmissions : 0.0;
+            kakaoTEmissions = kakaoTEmissions != null ? kakaoTEmissions : 0.0;
+
+            Double totalEmissions = commuteEmissions + businessEmissions + kakaoTEmissions;
+
+            data.add(new YearlyTrendResponse.YearlyEmissionData(
+                    String.valueOf(year),
+                    commuteEmissions,
+                    businessEmissions,
+                    kakaoTEmissions,
+                    totalEmissions
+            ));
+        }
+
+        return new YearlyTrendResponse(data);
+    }
+
+    /**
+     * 포인트 요약 조회
+     */
+    public PointsSummaryResponse getPointsSummary(LocalDate startDate, LocalDate endDate) {
+        // 출퇴근 포인트 계산
+        List<CommuteRecord> commuteRecords = commuteRecordRepository
+                .findByDateBetween(startDate, endDate);
+
+        Integer commutePoints = commuteRecords.stream()
+                .filter(r -> r.getPoints() != null && r.getPoints() > 0)
+                .mapToInt(CommuteRecord::getPoints)
+                .sum();
+
+        Integer commutePointsCount = (int) commuteRecords.stream()
+                .filter(r -> r.getPoints() != null && r.getPoints() > 0)
+                .count();
+
+        // 카카오T 포인트 계산
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
+
+        List<KakaoTData> kakaoTData = kakaoTDataRepository
+                .findByUsageDateBetweenOrderByUsageDateDesc(startDateTime, endDateTime);
+
+        Integer kakaoTPoints = kakaoTData.stream()
+                .filter(k -> k.getPoints() != null && k.getPoints() > 0)
+                .mapToInt(KakaoTData::getPoints)
+                .sum();
+
+        Integer kakaoTPointsCount = (int) kakaoTData.stream()
+                .filter(k -> k.getPoints() != null && k.getPoints() > 0)
+                .count();
+
+        Integer totalPoints = commutePoints + kakaoTPoints;
+        Integer pointsCount = commutePointsCount + kakaoTPointsCount;
+
+        return new PointsSummaryResponse(
+                totalPoints,
+                pointsCount,
+                commutePoints,
+                kakaoTPoints,
+                commutePointsCount,
+                kakaoTPointsCount
+        );
     }
 }

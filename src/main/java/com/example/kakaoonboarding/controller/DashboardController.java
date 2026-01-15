@@ -103,4 +103,62 @@ public class DashboardController {
             return ResponseEntity.badRequest().build();
         }
     }
+
+    /**
+     * 연도별 배출량 비교
+     * GET /api/dashboard/year-comparison?year1=2019&year2=2026
+     */
+    @GetMapping("/year-comparison")
+    public ResponseEntity<YearComparisonResponse> compareYears(
+            @RequestParam Integer year1,
+            @RequestParam Integer year2) {
+        try {
+            YearComparisonResponse response = dashboardService.compareYears(year1, year2);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    /**
+     * 연도별 추이 조회
+     * GET /api/dashboard/yearly-trend?fromYear=2019&toYear=2026
+     */
+    @GetMapping("/yearly-trend")
+    public ResponseEntity<YearlyTrendResponse> getYearlyTrend(
+            @RequestParam Integer fromYear,
+            @RequestParam Integer toYear) {
+        try {
+            YearlyTrendResponse response = dashboardService.getYearlyTrend(fromYear, toYear);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    /**
+     * 포인트 요약 조회
+     * GET /api/dashboard/points-summary?startDate=2024-01-01&endDate=2024-01-31
+     */
+    @GetMapping("/points-summary")
+    public ResponseEntity<PointsSummaryResponse> getPointsSummary(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        try {
+            // 기본값: 이번 달
+            if (startDate == null || endDate == null) {
+                LocalDate now = LocalDate.now();
+                startDate = now.withDayOfMonth(1);
+                endDate = now.withDayOfMonth(now.lengthOfMonth());
+            }
+
+            PointsSummaryResponse response = dashboardService.getPointsSummary(startDate, endDate);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.badRequest().build();
+        }
+    }
 }

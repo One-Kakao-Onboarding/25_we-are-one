@@ -37,14 +37,16 @@ public class CommuteHistoryResponse {
         private VehicleType vehicleType;
         private Double distance;
         private Double emissions;
+        private Integer points;
 
         public CommuteRecordDto(String date, Boolean usedCar, VehicleType vehicleType,
-                               Double distance, Double emissions) {
+                               Double distance, Double emissions, Integer points) {
             this.date = date;
             this.usedCar = usedCar;
             this.vehicleType = vehicleType;
             this.distance = distance;
             this.emissions = emissions;
+            this.points = points;
         }
 
         // Getters and Setters
@@ -86,6 +88,14 @@ public class CommuteHistoryResponse {
 
         public void setEmissions(Double emissions) {
             this.emissions = emissions;
+        }
+
+        public Integer getPoints() {
+            return points;
+        }
+
+        public void setPoints(Integer points) {
+            this.points = points;
         }
     }
 

@@ -33,6 +33,11 @@ public interface CommuteRecordRepository extends JpaRepository<CommuteRecord, Lo
     // 전체 직원의 출근 기록 조회 (날짜 범위)
     List<CommuteRecord> findByDateBetween(LocalDate startDate, LocalDate endDate);
 
+    // 전체 직원의 총 탄소 배출량 (특정 기간)
+    @Query("SELECT COALESCE(SUM(c.emissions), 0.0) FROM CommuteRecord c " +
+           "WHERE c.date BETWEEN :startDate AND :endDate")
+    Double sumEmissionsByDateBetween(LocalDate startDate, LocalDate endDate);
+
     // 부서별 출근 기록 조회
     List<CommuteRecord> findByDepartmentAndDateBetween(
             String department, LocalDate startDate, LocalDate endDate);
