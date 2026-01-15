@@ -1,5 +1,6 @@
 package com.example.kakaoonboarding.service;
 
+import com.example.kakaoonboarding.config.EmissionFactors;
 import com.example.kakaoonboarding.dto.Coordinates;
 import com.example.kakaoonboarding.dto.request.BusinessTripRequest;
 import com.example.kakaoonboarding.dto.request.EmissionsEstimateRequest;
@@ -34,13 +35,6 @@ public class BusinessTripService {
     private final KakaoLocalService kakaoLocalService;
     private final KakaoMobilityService kakaoMobilityService;
     private static final String UPLOAD_DIR = "uploads/receipts/";
-
-    // 교통수단별 배출 계수 (kgCO2e per km)
-    private static final Map<TripType, Double> EMISSION_FACTORS = Map.of(
-            TripType.TRAIN, 0.028,    // 기차: 28g/km
-            TripType.BUS, 0.068,      // 버스: 68g/km
-            TripType.FLIGHT, 0.211    // 항공: 211g/km
-    );
 
     public BusinessTripService(BusinessTripRepository businessTripRepository,
                               KakaoLocalService kakaoLocalService,
@@ -203,14 +197,15 @@ public class BusinessTripService {
             Double distance = summary.getDistance() / 1000.0;  // 미터를 킬로미터로 변환
 
             // 3. 교통수단별 배출 계수 적용
-            Double emissionsFactor = EMISSION_FACTORS.getOrDefault(request.getType(), 0.1);
-            Double estimatedEmissions = distance * emissionsFactor;
+            Double emissionsFactor = EmissionFactors.getFactorByTripType(request.getType());
+            Double estimatedEmissions = EmissionFactors.calculateEmissions(distance, emissionsFactor);
 
             return new EmissionsEstimateResponse(distance, estimatedEmissions, emissionsFactor);
         } catch (Exception e) {
             // 예외 발생 시 기본값 반환
             System.err.println("배출량 예측 실패: " + e.getMessage());
-            Double emissionsFactor = EMISSION_FACTORS.getOrDefault(request.getType(), 0.1);
+            e.printStackTrace();
+            Double emissionsFactor = EmissionFactors.getFactorByTripType(request.getType());
             return new EmissionsEstimateResponse(0.0, 0.0, emissionsFactor);
         }
     }
