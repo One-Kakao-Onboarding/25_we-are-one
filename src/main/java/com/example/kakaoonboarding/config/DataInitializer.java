@@ -7,9 +7,10 @@ import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Random;
 
 /**
- * 초기 Mock 데이터 삽입
+ * 초기 Mock 데이터 삽입 (2019-2026 연도별 추이 데이터 포함)
  */
 @Component
 public class DataInitializer implements CommandLineRunner {
@@ -18,6 +19,18 @@ public class DataInitializer implements CommandLineRunner {
     private final CommuteRecordRepository commuteRecordRepository;
     private final BusinessTripRepository businessTripRepository;
     private final KakaoTDataRepository kakaoTDataRepository;
+    private final Random random = new Random();
+
+    private final String[][] EMPLOYEES = {
+        {"employee1", "김직원", "EMP001", "개발팀"},
+        {"employee2", "이사원", "EMP002", "영업팀"},
+        {"employee3", "박사원", "EMP003", "인사팀"},
+        {"employee4", "최대리", "EMP004", "개발팀"},
+        {"employee5", "정과장", "EMP005", "영업팀"},
+        {"employee6", "강사원", "EMP006", "마케팅팀"},
+        {"employee7", "윤대리", "EMP007", "인사팀"},
+        {"employee8", "조과장", "EMP008", "개발팀"}
+    };
 
     public DataInitializer(UserRepository userRepository,
                           CommuteRecordRepository commuteRecordRepository,
@@ -37,18 +50,10 @@ public class DataInitializer implements CommandLineRunner {
         }
 
         System.out.println("========== 초기 Mock 데이터 삽입 시작 ==========");
+        System.out.println("📊 2019-2026년 연도별 추이 데이터 생성 중...");
 
-        // 1. 사용자 데이터
         createUsers();
-
-        // 2. 출퇴근 기록
-        createCommuteRecords();
-
-        // 3. 출장 기록
-        createBusinessTrips();
-
-        // 4. 카카오T 데이터
-        createKakaoTData();
+        createHistoricalData();
 
         System.out.println("========== 초기 Mock 데이터 삽입 완료 ==========");
         System.out.println();
@@ -59,40 +64,18 @@ public class DataInitializer implements CommandLineRunner {
     private void createUsers() {
         System.out.println("\n[1단계] 사용자 데이터 생성");
 
-        // 사원 1 - 김직원 (개발팀)
-        User employee1 = new User();
-        employee1.setUsername("employee1");
-        employee1.setPassword("1234");
-        employee1.setName("김직원");
-        employee1.setRole(UserRole.EMPLOYEE);
-        employee1.setEmployeeId("EMP001");
-        employee1.setDepartment("개발팀");
-        userRepository.save(employee1);
-        System.out.println("✓ 사원 1: " + employee1.getName() + " (개발팀)");
+        for (String[] emp : EMPLOYEES) {
+            User user = new User();
+            user.setUsername(emp[0]);
+            user.setPassword("1234");
+            user.setName(emp[1]);
+            user.setRole(UserRole.EMPLOYEE);
+            user.setEmployeeId(emp[2]);
+            user.setDepartment(emp[3]);
+            userRepository.save(user);
+            System.out.println("✓ " + emp[1] + " (" + emp[3] + ")");
+        }
 
-        // 사원 2 - 이사원 (영업팀)
-        User employee2 = new User();
-        employee2.setUsername("employee2");
-        employee2.setPassword("1234");
-        employee2.setName("이사원");
-        employee2.setRole(UserRole.EMPLOYEE);
-        employee2.setEmployeeId("EMP002");
-        employee2.setDepartment("영업팀");
-        userRepository.save(employee2);
-        System.out.println("✓ 사원 2: " + employee2.getName() + " (영업팀)");
-
-        // 사원 3 - 박사원 (인사팀)
-        User employee3 = new User();
-        employee3.setUsername("employee3");
-        employee3.setPassword("1234");
-        employee3.setName("박사원");
-        employee3.setRole(UserRole.EMPLOYEE);
-        employee3.setEmployeeId("EMP003");
-        employee3.setDepartment("인사팀");
-        userRepository.save(employee3);
-        System.out.println("✓ 사원 3: " + employee3.getName() + " (인사팀)");
-
-        // 컨설턴트 - 관리자
         User consultant = new User();
         consultant.setUsername("consultant");
         consultant.setPassword("admin");
@@ -104,224 +87,217 @@ public class DataInitializer implements CommandLineRunner {
         System.out.println("✓ 컨설턴트: " + consultant.getName());
     }
 
-    private void createCommuteRecords() {
-        System.out.println("\n[2단계] 출퇴근 기록 생성");
+    private void createHistoricalData() {
+        System.out.println("\n[2단계] 연도별 히스토리 데이터 생성");
 
-        LocalDate today = LocalDate.now();
-        int recordCount = 0;
+        int totalCommute = 0, totalTrip = 0, totalKakaoT = 0;
 
-        // 김직원 - 최근 7일 출퇴근
-        for (int i = 0; i < 7; i++) {
+        // 2019년부터 2026년까지 데이터 생성
+        for (int year = 2019; year <= 2026; year++) {
+            System.out.println("\n  [" + year + "년] 데이터 생성 중...");
+
+            // 연도별 친환경 비율 (점진적 증가)
+            double ecoRatio = getEcoFriendlyRatio(year);
+
+            // 각 직원별 데이터 생성
+            for (String[] emp : EMPLOYEES) {
+                // 월별 데이터 (1-12월)
+                for (int month = 1; month <= 12; month++) {
+                    // 출퇴근 데이터 (월 평균 20일)
+                    int workDays = 18 + random.nextInt(5); // 18-22일
+                    for (int day = 1; day <= workDays && day <= getLastDayOfMonth(year, month); day++) {
+                        if (random.nextDouble() < 0.9) { // 90% 확률로 출근 기록
+                            createCommuteRecord(emp, year, month, day, ecoRatio);
+                            totalCommute++;
+                        }
+                    }
+
+                    // 출장 데이터 (월 평균 0-2회)
+                    int tripCount = random.nextDouble() < 0.3 ? 1 : 0;
+                    if (random.nextDouble() < 0.1) tripCount = 2;
+                    for (int i = 0; i < tripCount; i++) {
+                        int tripDay = 1 + random.nextInt(Math.min(28, getLastDayOfMonth(year, month)));
+                        createBusinessTrip(emp, year, month, tripDay);
+                        totalTrip++;
+                    }
+
+                    // 카카오T 데이터 (2022년부터, 월 평균 0-3회)
+                    if (year >= 2022) {
+                        int kakaoTCount = random.nextInt(4); // 0-3회
+                        for (int i = 0; i < kakaoTCount; i++) {
+                            int kakaoTDay = 1 + random.nextInt(Math.min(28, getLastDayOfMonth(year, month)));
+                            createKakaoTRecord(emp, year, month, kakaoTDay, ecoRatio);
+                            totalKakaoT++;
+                        }
+                    }
+                }
+            }
+
+            System.out.println("  ✓ " + year + "년 완료 (친환경 비율: " + String.format("%.0f", ecoRatio * 100) + "%)");
+        }
+
+        System.out.println("\n  총 생성 데이터:");
+        System.out.println("  - 출퇴근: " + totalCommute + "건");
+        System.out.println("  - 출장: " + totalTrip + "건");
+        System.out.println("  - 카카오T: " + totalKakaoT + "건");
+    }
+
+    // 연도별 친환경 교통수단 이용 비율
+    private double getEcoFriendlyRatio(int year) {
+        switch (year) {
+            case 2019: return 0.15; // 15%
+            case 2020: return 0.25; // 25%
+            case 2021: return 0.35; // 35%
+            case 2022: return 0.50; // 50%
+            case 2023: return 0.65; // 65%
+            case 2024: return 0.75; // 75%
+            case 2025: return 0.85; // 85%
+            case 2026: return 0.90; // 90%
+            default: return 0.50;
+        }
+    }
+
+    private void createCommuteRecord(String[] emp, int year, int month, int day, double ecoRatio) {
+        try {
+            LocalDate date = LocalDate.of(year, month, day);
             CommuteRecord record = new CommuteRecord();
-            record.setEmployeeId("EMP001");
-            record.setEmployeeName("김직원");
-            record.setDepartment("개발팀");
-            record.setDate(today.minusDays(i));
-            record.setDistance(15.2);
+            record.setEmployeeId(emp[2]);
+            record.setEmployeeName(emp[1]);
+            record.setDepartment(emp[3]);
+            record.setDate(date);
+            record.setDistance(10.0 + random.nextDouble() * 15.0); // 10-25km
 
-            if (i % 3 == 0) {
-                // 친환경 교통수단 (대중교통)
-                record.setUsedCar(false);
-                record.setVehicleType(null);
-                record.setEmissions(0.0);
-                record.setPoints(10);
-            } else if (i % 3 == 1) {
-                // 전기차
-                record.setUsedCar(true);
-                record.setVehicleType(VehicleType.EV);
-                record.setEmissions(0.0);
-                record.setPoints(10);
+            if (random.nextDouble() < ecoRatio) {
+                // 친환경 교통수단
+                if (random.nextDouble() < 0.7) {
+                    // 대중교통/자전거/도보
+                    record.setUsedCar(false);
+                    record.setVehicleType(null);
+                    record.setEmissions(0.0);
+                    record.setPoints(10);
+                } else {
+                    // 전기차
+                    record.setUsedCar(true);
+                    record.setVehicleType(VehicleType.EV);
+                    record.setEmissions(0.0);
+                    record.setPoints(10);
+                }
             } else {
-                // 내연기관 자가용
+                // 내연기관 차량
                 record.setUsedCar(true);
-                record.setVehicleType(VehicleType.ICE);
-                record.setEmissions(2.63);
+                if (random.nextDouble() < 0.7) {
+                    record.setVehicleType(VehicleType.ICE);
+                    record.setEmissions(record.getDistance() * 0.17304);
+                } else {
+                    record.setVehicleType(VehicleType.HYBRID);
+                    record.setEmissions(record.getDistance() * 0.17304);
+                }
                 record.setPoints(0);
             }
 
             commuteRecordRepository.save(record);
-            recordCount++;
+        } catch (Exception e) {
+            // 날짜 오류 무시 (2월 30일 등)
         }
+    }
 
-        // 이사원 - 최근 5일 출퇴근
-        for (int i = 0; i < 5; i++) {
-            CommuteRecord record = new CommuteRecord();
-            record.setEmployeeId("EMP002");
-            record.setEmployeeName("이사원");
-            record.setDepartment("영업팀");
-            record.setDate(today.minusDays(i));
-            record.setDistance(20.5);
+    private void createBusinessTrip(String[] emp, int year, int month, int day) {
+        try {
+            LocalDate date = LocalDate.of(year, month, day);
+            BusinessTrip trip = new BusinessTrip();
+            trip.setEmployeeId(emp[2]);
+            trip.setEmployeeName(emp[1]);
+            trip.setDepartment(emp[3]);
+            trip.setDate(date);
 
-            if (i % 2 == 0) {
-                // 대중교통
-                record.setUsedCar(false);
-                record.setVehicleType(null);
-                record.setEmissions(0.0);
-                record.setPoints(10);
+            String[][] routes = {
+                {"서울역", "부산역", "417"},
+                {"서울역", "대구역", "294"},
+                {"서울", "대전", "150"},
+                {"김포공항", "제주공항", "453"},
+                {"인천공항", "김해공항", "395"},
+                {"서울", "광주", "268"}
+            };
+
+            String[] route = routes[random.nextInt(routes.length)];
+            trip.setDeparture(route[0]);
+            trip.setArrival(route[1]);
+            trip.setDistance(Double.parseDouble(route[2]));
+
+            // 출장 유형 선택
+            double rand = random.nextDouble();
+            if (rand < 0.6) {
+                // 기차 (60%)
+                trip.setType(TripType.TRAIN);
+                trip.setEmissions(trip.getDistance() * 0.03546);
+            } else if (rand < 0.8) {
+                // 버스 (20%)
+                trip.setType(TripType.BUS);
+                trip.setEmissions(0.0);
             } else {
-                // 하이브리드
-                record.setUsedCar(true);
-                record.setVehicleType(VehicleType.HYBRID);
-                record.setEmissions(3.55);
-                record.setPoints(0);
+                // 비행기 (20%)
+                trip.setType(TripType.FLIGHT);
+                trip.setEmissions(trip.getDistance() * 0.14253);
             }
 
-            commuteRecordRepository.save(record);
-            recordCount++;
+            businessTripRepository.save(trip);
+        } catch (Exception e) {
+            // 날짜 오류 무시
         }
-
-        // 박사원 - 최근 6일 출퇴근
-        for (int i = 0; i < 6; i++) {
-            CommuteRecord record = new CommuteRecord();
-            record.setEmployeeId("EMP003");
-            record.setEmployeeName("박사원");
-            record.setDepartment("인사팀");
-            record.setDate(today.minusDays(i));
-            record.setDistance(10.8);
-            record.setUsedCar(false);
-            record.setVehicleType(null);
-            record.setEmissions(0.0);
-            record.setPoints(10);
-
-            commuteRecordRepository.save(record);
-            recordCount++;
-        }
-
-        System.out.println("✓ 출퇴근 기록 " + recordCount + "건 생성 완료");
     }
 
-    private void createBusinessTrips() {
-        System.out.println("\n[3단계] 출장 기록 생성");
+    private void createKakaoTRecord(String[] emp, int year, int month, int day, double ecoRatio) {
+        try {
+            LocalDateTime dateTime = LocalDateTime.of(year, month, day,
+                9 + random.nextInt(12), random.nextInt(60));
 
-        LocalDate today = LocalDate.now();
-        int tripCount = 0;
+            KakaoTData data = new KakaoTData();
+            data.setEmployeeId(emp[2]);
+            data.setEmployeeName(emp[1]);
+            data.setDepartment(emp[3]);
+            data.setUsageDate(dateTime);
+            data.setDistance(5.0 + random.nextDouble() * 15.0); // 5-20km
 
-        // 김직원 - 기차 출장
-        BusinessTrip trip1 = new BusinessTrip();
-        trip1.setEmployeeId("EMP001");
-        trip1.setEmployeeName("김직원");
-        trip1.setDepartment("개발팀");
-        trip1.setDate(today.minusDays(10));
-        trip1.setType(TripType.TRAIN);
-        trip1.setDeparture("서울역");
-        trip1.setArrival("부산역");
-        trip1.setDistance(417.0);
-        trip1.setEmissions(14.79); // 417 * 0.03546
-        businessTripRepository.save(trip1);
-        tripCount++;
+            String[][] routes = {
+                {"판교역", "강남역"},
+                {"여의도", "강남"},
+                {"홍대입구", "신촌"},
+                {"사무실", "클라이언트사"},
+                {"강남역", "선릉역"},
+                {"삼성역", "역삼역"}
+            };
 
-        // 이사원 - 비행기 출장
-        BusinessTrip trip2 = new BusinessTrip();
-        trip2.setEmployeeId("EMP002");
-        trip2.setEmployeeName("이사원");
-        trip2.setDepartment("영업팀");
-        trip2.setDate(today.minusDays(15));
-        trip2.setType(TripType.FLIGHT);
-        trip2.setDeparture("김포공항");
-        trip2.setArrival("제주공항");
-        trip2.setDistance(453.0);
-        trip2.setEmissions(64.57); // 453 * 0.14253
-        businessTripRepository.save(trip2);
-        tripCount++;
+            String[] route = routes[random.nextInt(routes.length)];
+            data.setRoute(route[0] + " → " + route[1]);
 
-        // 박사원 - 버스 출장
-        BusinessTrip trip3 = new BusinessTrip();
-        trip3.setEmployeeId("EMP003");
-        trip3.setEmployeeName("박사원");
-        trip3.setDepartment("인사팀");
-        trip3.setDate(today.minusDays(5));
-        trip3.setType(TripType.BUS);
-        trip3.setDeparture("서울");
-        trip3.setArrival("대전");
-        trip3.setDistance(150.0);
-        trip3.setEmissions(0.0); // 버스는 0
-        businessTripRepository.save(trip3);
-        tripCount++;
+            if (random.nextDouble() < 0.3) {
+                // 자전거 (30%)
+                data.setServiceType(KakaoTServiceType.BIKE);
+                data.setVehicleType(VehicleType.EV);
+                data.setEmissions(0.0);
+                data.setPoints(10);
+            } else if (random.nextDouble() < ecoRatio) {
+                // 전기차 택시 (친환경 비율에 따라)
+                data.setServiceType(random.nextDouble() < 0.8 ? KakaoTServiceType.TAXI : KakaoTServiceType.QUICK);
+                data.setVehicleType(VehicleType.EV);
+                data.setEmissions(0.0);
+                data.setPoints(10);
+            } else {
+                // 일반 택시/퀵
+                data.setServiceType(random.nextDouble() < 0.8 ? KakaoTServiceType.TAXI : KakaoTServiceType.QUICK);
+                data.setVehicleType(VehicleType.ICE);
+                data.setEmissions(data.getDistance() * 0.17304);
+                data.setPoints(0);
+            }
 
-        // 김직원 - 기차 출장 2
-        BusinessTrip trip4 = new BusinessTrip();
-        trip4.setEmployeeId("EMP001");
-        trip4.setEmployeeName("김직원");
-        trip4.setDepartment("개발팀");
-        trip4.setDate(today.minusDays(3));
-        trip4.setType(TripType.TRAIN);
-        trip4.setDeparture("서울역");
-        trip4.setArrival("대구역");
-        trip4.setDistance(294.0);
-        trip4.setEmissions(10.43); // 294 * 0.03546
-        businessTripRepository.save(trip4);
-        tripCount++;
-
-        System.out.println("✓ 출장 기록 " + tripCount + "건 생성 완료");
+            kakaoTDataRepository.save(data);
+        } catch (Exception e) {
+            // 날짜 오류 무시
+        }
     }
 
-    private void createKakaoTData() {
-        System.out.println("\n[4단계] 카카오T 데이터 생성");
-
-        LocalDateTime now = LocalDateTime.now();
-        int kakaoTCount = 0;
-
-        // 김직원 - 전기차 택시
-        KakaoTData data1 = new KakaoTData();
-        data1.setEmployeeId("EMP001");
-        data1.setEmployeeName("김직원");
-        data1.setDepartment("개발팀");
-        data1.setUsageDate(now.minusDays(2).withHour(18).withMinute(30));
-        data1.setServiceType(KakaoTServiceType.TAXI);
-        data1.setVehicleType(VehicleType.EV);
-        data1.setRoute("판교역 → 강남역");
-        data1.setDistance(15.5);
-        data1.setEmissions(0.0);
-        data1.setPoints(10);
-        kakaoTDataRepository.save(data1);
-        kakaoTCount++;
-
-        // 이사원 - 일반 택시
-        KakaoTData data2 = new KakaoTData();
-        data2.setEmployeeId("EMP002");
-        data2.setEmployeeName("이사원");
-        data2.setDepartment("영업팀");
-        data2.setUsageDate(now.minusDays(4).withHour(14).withMinute(20));
-        data2.setServiceType(KakaoTServiceType.TAXI);
-        data2.setVehicleType(VehicleType.ICE);
-        data2.setRoute("여의도 → 강남");
-        data2.setDistance(12.3);
-        data2.setEmissions(2.13); // 12.3 * 0.17304
-        data2.setPoints(0);
-        kakaoTDataRepository.save(data2);
-        kakaoTCount++;
-
-        // 박사원 - 자전거
-        KakaoTData data3 = new KakaoTData();
-        data3.setEmployeeId("EMP003");
-        data3.setEmployeeName("박사원");
-        data3.setDepartment("인사팀");
-        data3.setUsageDate(now.minusDays(1).withHour(12).withMinute(0));
-        data3.setServiceType(KakaoTServiceType.BIKE);
-        data3.setVehicleType(VehicleType.EV); // 자전거는 배출량 0
-        data3.setRoute("홍대입구 → 신촌");
-        data3.setDistance(2.8);
-        data3.setEmissions(0.0);
-        data3.setPoints(10);
-        kakaoTDataRepository.save(data3);
-        kakaoTCount++;
-
-        // 김직원 - 퀵서비스
-        KakaoTData data4 = new KakaoTData();
-        data4.setEmployeeId("EMP001");
-        data4.setEmployeeName("김직원");
-        data4.setDepartment("개발팀");
-        data4.setUsageDate(now.minusDays(6).withHour(16).withMinute(45));
-        data4.setServiceType(KakaoTServiceType.QUICK);
-        data4.setVehicleType(VehicleType.ICE);
-        data4.setRoute("사무실 → 클라이언트사");
-        data4.setDistance(8.7);
-        data4.setEmissions(1.51); // 8.7 * 0.17304
-        data4.setPoints(0);
-        kakaoTDataRepository.save(data4);
-        kakaoTCount++;
-
-        System.out.println("✓ 카카오T 데이터 " + kakaoTCount + "건 생성 완료");
+    private int getLastDayOfMonth(int year, int month) {
+        return LocalDate.of(year, month, 1).lengthOfMonth();
     }
 
     private void printLoginInfo() {
@@ -335,10 +311,11 @@ public class DataInitializer implements CommandLineRunner {
 
     private void printDataSummary() {
         System.out.println("\n=== Mock 데이터 요약 ===");
-        System.out.println("사용자: " + userRepository.count() + "명");
-        System.out.println("출퇴근 기록: " + commuteRecordRepository.count() + "건");
-        System.out.println("출장 기록: " + businessTripRepository.count() + "건");
-        System.out.println("카카오T 데이터: " + kakaoTDataRepository.count() + "건");
+        System.out.println("📅 기간: 2019년 ~ 2026년 (8년)");
+        System.out.println("👥 사용자: " + userRepository.count() + "명");
+        System.out.println("🚗 출퇴근 기록: " + commuteRecordRepository.count() + "건");
+        System.out.println("✈️  출장 기록: " + businessTripRepository.count() + "건");
+        System.out.println("🚕 카카오T 데이터: " + kakaoTDataRepository.count() + "건");
 
         long totalPoints = commuteRecordRepository.findAll().stream()
                 .filter(r -> r.getPoints() != null)
@@ -349,8 +326,29 @@ public class DataInitializer implements CommandLineRunner {
                 .mapToInt(KakaoTData::getPoints)
                 .sum();
 
-        System.out.println("총 적립 포인트: " + totalPoints + "P");
+        System.out.println("💰 총 적립 포인트: " + totalPoints + "P");
+
+        // 연도별 통계
+        System.out.println("\n📊 연도별 배출량 추이:");
+        for (int year = 2019; year <= 2026; year++) {
+            LocalDate start = LocalDate.of(year, 1, 1);
+            LocalDate end = LocalDate.of(year, 12, 31);
+
+            Double commuteEmissions = commuteRecordRepository.sumEmissionsByDateBetween(start, end);
+            Double tripEmissions = businessTripRepository.sumEmissionsByDateBetween(start, end);
+
+            LocalDateTime startDateTime = start.atStartOfDay();
+            LocalDateTime endDateTime = end.atTime(23, 59, 59);
+            Double kakaoTEmissions = year >= 2022 ?
+                kakaoTDataRepository.sumEmissionsByUsageDateBetween(startDateTime, endDateTime) : 0.0;
+
+            Double total = (commuteEmissions != null ? commuteEmissions : 0.0) +
+                          (tripEmissions != null ? tripEmissions : 0.0) +
+                          (kakaoTEmissions != null ? kakaoTEmissions : 0.0);
+
+            System.out.println("  " + year + "년: " + String.format("%.2f", total) + " kg/CO₂");
+        }
+
         System.out.println("======================");
     }
 }
-
