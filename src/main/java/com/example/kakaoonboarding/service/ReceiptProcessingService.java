@@ -1,11 +1,11 @@
 package com.example.kakaoonboarding.service;
 
+import com.example.kakaoonboarding.config.EmissionFactors;
 import com.example.kakaoonboarding.config.SessionUser;
 import com.example.kakaoonboarding.dto.request.BusinessTripRequest;
 import com.example.kakaoonboarding.dto.request.CommuteCheckInRequest;
 import com.example.kakaoonboarding.dto.request.ReceiptConfirmRequest;
 import com.example.kakaoonboarding.dto.response.*;
-import com.example.kakaoonboarding.entity.EmissionFactors;
 import com.example.kakaoonboarding.entity.KakaoTData;
 import com.example.kakaoonboarding.util.ReceiptDataTransformer;
 import jakarta.servlet.http.HttpSession;
@@ -255,7 +255,7 @@ public class ReceiptProcessingService {
         } else if (type.contains("train") || type.contains("기차")) {
             return EmissionFactors.TRAIN;
         } else if (type.contains("car") || type.contains("taxi") || type.contains("자가용")) {
-            return EmissionFactors.CAR_TAXI;
+            return EmissionFactors.TAXI;
         }
 
         return 0.0; // 친환경 교통수단

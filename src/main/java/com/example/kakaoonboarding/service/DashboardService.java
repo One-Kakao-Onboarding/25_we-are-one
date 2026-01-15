@@ -1,5 +1,6 @@
 package com.example.kakaoonboarding.service;
 
+import com.example.kakaoonboarding.config.EmissionFactors;
 import com.example.kakaoonboarding.dto.response.*;
 import com.example.kakaoonboarding.entity.*;
 import com.example.kakaoonboarding.repository.*;
@@ -559,7 +560,7 @@ public class DashboardService {
                     if (distance == 0.0 && (r.getUsedCar() == null || !r.getUsedCar())) {
                         distance = 10.0; // 평균 출퇴근 거리
                     }
-                    return EmissionFactors.calculateEmissions(distance, EmissionFactors.CAR_TAXI);
+                    return EmissionFactors.calculateEmissions(distance, EmissionFactors.ICE_CAR);
                 })
                 .sum();
 
@@ -572,7 +573,7 @@ public class DashboardService {
         Double kakaoTHypothetical = kakaoTData.stream()
                 .mapToDouble(k -> {
                     Double distance = k.getDistance() != null ? k.getDistance() : 0.0;
-                    return EmissionFactors.calculateEmissions(distance, EmissionFactors.CAR_TAXI);
+                    return EmissionFactors.calculateEmissions(distance, EmissionFactors.ICE_CAR);
                 })
                 .sum();
 
